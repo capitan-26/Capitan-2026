@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>CAPITÁN 2026 — Demo Google Sheets</title>
+<style>
+:root{--bg:#08090b;--panel:#111316;--line:#2a2f35;--text:#f7f8fa;--muted:#9aa1aa;--accent:#ff0f52;--ok:#36d66b}
+*{box-sizing:border-box}body{margin:0;background:#08090b;color:var(--text);font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif}
+.app{max-width:760px;margin:auto;padding:18px 14px 100px}.top{display:flex;justify-content:space-between;align-items:center}.logo{font-size:28px;font-weight:950;letter-spacing:.16em}.logo small{display:block;color:var(--accent);font-size:10px;letter-spacing:.25em}
+.card{background:linear-gradient(180deg,var(--panel),#0d0f12);border:1px solid var(--line);border-radius:18px;padding:15px;margin-top:14px}
+label{font-size:11px;letter-spacing:.1em;color:#d9dce0}input{width:100%;margin-top:7px;margin-bottom:12px;background:#090b0d;color:#fff;border:1px solid #3a4048;border-radius:12px;padding:13px;font-size:15px}
+.match{display:grid;grid-template-columns:1fr 150px 1fr;gap:8px;align-items:center;padding:11px 0;border-top:1px solid #252a30}.team{font-weight:800;font-size:13px}.away{text-align:right}.pick{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.pick button{height:40px;border:1px solid #5a1730;border-radius:10px;background:#0b0d10;color:#fff;font-weight:950}.pick button.active{background:var(--accent);border-color:var(--accent)}
+.modes{display:flex;gap:8px;margin:10px 0 14px}.modes button{border:1px solid #5a1730;background:#0c0e11;color:#fff;border-radius:999px;padding:9px 13px;font-weight:850}.modes button.active{background:var(--accent);border-color:var(--accent)}
+.btn{width:100%;border:0;border-radius:14px;padding:14px;font-weight:900;font-size:15px;margin-top:10px}.primary{background:var(--accent);color:#fff}.ghost{background:#15181c;color:#fff;border:1px solid var(--line)}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;text-align:center}.stat{background:#0b0d10;border:1px solid #252a30;border-radius:13px;padding:10px 5px}.stat small{display:block;color:var(--muted);font-size:9px}.stat strong{font-size:22px}
+.notice{font-size:12px;color:var(--muted);line-height:1.5}.ok{color:var(--ok)}.warn{color:#ffbd59}
+details{margin-top:14px}summary{cursor:pointer;font-weight:900}.setup{margin-top:12px}
+@media(max-width:560px){.match{grid-template-columns:1fr 126px 1fr;gap:5px}.team{font-size:11px}.logo{font-size:24px}}
+</style>
+</head>
+<body>
+<div class="app">
+<div class="top"><div class="logo">CAPITÁN<small>QUINIELA 2026</small></div></div>
+
+<div class="card">
+  <label>NOMBRE / APODO</label>
+  <input id="name" placeholder="Escribe tu nombre">
+  <label>WHATSAPP</label>
+  <input id="phone" inputmode="tel" placeholder="Tu número">
+
+  <div class="modes">
+    <button data-mode="simple" class="active">SIMPLE</button>
+    <button data-mode="doble">DOBLE</button>
+    <button data-mode="triple">TRIPLE</button>
+  </div>
+  <div id="matches"></div>
+</div>
+
+<div class="card">
+  <div class="stats">
+    <div class="stat"><small>COMBINACIONES</small><strong id="combos">1</strong></div>
+    <div class="stat"><small>PRECIO BASE</small><strong>$30</strong></div>
+    <div class="stat"><small>TOTAL</small><strong id="total">$30</strong></div>
+  </div>
+  <button id="register" class="btn primary">REGISTRAR Y ENVIAR A GOOGLE SHEETS</button>
+  <div id="status" class="notice" style="margin-top:10px">Configura primero la URL de tu Web App en “Automatización”.</div>
+</div>
+
+<div class="card">
+  <details open>
+    <summary>⚙ Automatización</summary>
+    <div class="setup">
+      <label>URL DE GOOGLE APPS SCRIPT</label>
+      <input id="webapp" placeholder="https://script.google.com/macros/s/.../exec">
+      <label>WHATSAPP DEL ORGANIZADOR</label>
+      <input id="organizer" value="5530014079">
+      <button id="saveConfig" class="btn ghost">GUARDAR CONFIGURACIÓN</button>
+      <button id="test" class="btn ghost">ENVIAR FILA DE PRUEBA</button>
+      <p class="notice">Cuando se registra una quiniela, se manda a Google Sheets y después se abre WhatsApp al <b>55 3001 4079</b> con el folio y el importe para enviar comprobante.</p>
+    </div>
+  </details>
+</div>
+</div>
+
+<script>
+const games=[["Necaxa","Monterrey"],["Atlas","San Luis"],["Tigres","Puebla"],["Cruz Azul","Juárez"],["Tijuana","León"],["Toluca","Santos"],["Pachuca","Guadalajara"],["Man City","Chelsea"],["Tottenham","Arsenal"]];
+let mode='simple', current=Array.from({length:9},()=>[]);
+const $=id=>document.getElementById(id);
+const maxSel=()=>mode==='simple'?1:mode==='doble'?2:3;
+const combos=()=>current.reduce((n,x)=>n*Math.max(1,x.length),1);
+
+function render(){
+  $('matches').innerHTML=games.map((g,i)=>`<div class="match">
+    <div class="team">${i+1}. ${g[0]}</div>
+    <div class="pick">${["L","E","V"].map(v=>`<button data-i="${i}" data-v="${v}" class="${current[i].includes(v)?'active':''}">${v}</button>`).join("")}</div>
+    <div class="team away">${g[1]}</div></div>`).join("");
+  $('matches').querySelectorAll('button').forEach(b=>b.onclick=()=>{
+    let a=current[+b.dataset.i],v=b.dataset.v;
+    if(a.includes(v)) current[+b.dataset.i]=a.filter(x=>x!==v);
+    else {if(a.length>=maxSel()) a.shift();a.push(v)}
+    render();summary();
+  });
+}
+function summary(){
+  const c=current.every(x=>x.length)?combos():1;
+  $('combos').textContent=c;$('total').textContent='$'+(c*30);
+}
+document.querySelectorAll('[data-mode]').forEach(b=>b.onclick=()=>{
+  mode=b.dataset.mode;document.querySelectorAll('[data-mode]').forEach(x=>x.classList.toggle('active',x===b));
+  current=Array.from({length:9},()=>[]);render();summary();
+});
+
+const cfg=JSON.parse(localStorage.getItem('capitan_google_cfg')||'{}');
+$('webapp').value=cfg.webapp||'';$('organizer').value=cfg.organizer||'5530014079';
+
+$('saveConfig').onclick=()=>{
+  localStorage.setItem('capitan_google_cfg',JSON.stringify({webapp:$('webapp').value.trim(),organizer:$('organizer').value.trim()}));
+  $('status').innerHTML='<span class="ok">Configuración guardada.</span>';
+};
+
+async function send(data){
+  const url=$('webapp').value.trim();
+  if(!url) throw new Error('Falta la URL de Apps Script');
+  await fetch(url,{method:'POST',mode:'no-cors',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(data)});
+}
+$('test').onclick=async()=>{
+  try{
+    $('status').textContent='Enviando prueba...';
+    await send({action:'test'});
+    $('status').innerHTML='<span class="ok">Prueba enviada. Revisa la hoja “Participantes” en Google Sheets.</span>';
+  }catch(e){$('status').innerHTML='<span class="warn">'+e.message+'</span>'}
+};
+
+$('register').onclick=async()=>{
+  const name=$('name').value.trim(),phone=$('phone').value.trim();
+  if(!name||!phone)return alert('Escribe nombre y WhatsApp.');
+  if(current.some(x=>!x.length))return alert('Completa los 9 partidos.');
+  const c=combos(), folio='CAP-'+Date.now().toString().slice(-7);
+  const payload={
+    folio,jornada:'Jornada 2',name,phone,combos:c,amount:c*30,
+    entries:[{mode,combos:c,picks:current.map(x=>[...x])}],
+    created:new Date().toLocaleString('es-MX')
+  };
+  try{
+    $('status').textContent='Registrando en Google Sheets...';
+    await send({action:'register',payload});
+    $('status').innerHTML='<span class="ok">Registro enviado a Google Sheets. Folio: '+folio+'</span>';
+    const org=$('organizer').value.replace(/\D/g,'')||'5530014079';
+    const msg=encodeURIComponent(`CAPITÁN 2026\nFolio: ${folio}\nJugador: ${name}\nWhatsApp: ${phone}\nCombinaciones: ${c}\nTotal: $${c*30}\nEstado: PAGO PENDIENTE\n\nAdjunto mi comprobante de pago.`);
+    setTimeout(()=>window.open(`https://wa.me/52${org}?text=${msg}`,'_blank'),400);
+  }catch(e){$('status').innerHTML='<span class="warn">'+e.message+'</span>'}
+};
+render();summary();
+</script>
+</body>
+</html>
