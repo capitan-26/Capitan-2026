@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Admin CAPITÁN — Configurar jornada</title><script src="jornada.js"></script>
+<style>
+body{margin:0;background:#090a0c;color:#fff;font-family:Arial,sans-serif}.wrap{max-width:900px;margin:auto;padding:18px}.card{background:#111316;border:1px solid #333;border-radius:16px;padding:15px;margin:12px 0}h1{margin:0 0 8px}label{display:block;font-size:11px;color:#bbb;margin-top:10px}input{width:100%;padding:11px;border-radius:10px;border:1px solid #444;background:#08090b;color:#fff;margin-top:5px}.match{display:grid;grid-template-columns:1fr 1fr;gap:10px;border-top:1px solid #333;padding:12px 0}.logoBox{display:flex;gap:8px;align-items:center}.logoBox img{width:42px;height:42px;object-fit:contain}.btn{padding:13px 15px;border:0;border-radius:12px;font-weight:900;background:#ff1455;color:#fff;margin-top:10px}.ghost{background:#222;border:1px solid #444}.hint{font-size:12px;color:#aaa;line-height:1.5}
+@media(max-width:600px){.match{grid-template-columns:1fr}}
+</style></head><body><div class="wrap">
+<h1>Administrador CAPITÁN</h1><div class="hint">Aquí editas la jornada. Al terminar, descarga <b>jornada.js</b> y reemplaza ese mismo archivo en GitHub. La página pública se actualizará para todos.</div>
+<div class="card">
+<label>Jornada</label><input id="jornada"><label>Liga / competencia</label><input id="liga"><label>Fecha</label><input id="fecha"><label>Cierre</label><input id="cierre"><label>Precio base por combinación</label><input id="precio" type="number"><label>WhatsApp organizador</label><input id="whatsapp"><label>URL Google Apps Script (opcional)</label><input id="webapp">
+</div>
+<div class="card"><h2>Partidos y escudos</h2><div id="games"></div></div>
+<button class="btn" id="download">DESCARGAR jornada.js ACTUALIZADO</button>
+</div>
+<script>
+const C=JSON.parse(JSON.stringify(window.CAPITAN_CONFIG));
+['jornada','liga','fecha','cierre'].forEach(k=>document.getElementById(k).value=C[k]||'');
+document.getElementById('precio').value=C.precioBase||30;document.getElementById('whatsapp').value=C.organizerWhatsApp||'';document.getElementById('webapp').value=C.webAppUrl||'';
+const root=document.getElementById('games');
+function gameRow(g,i){
+ return `<div class="match">
+  <div><b>${i+1}. LOCAL</b><div class="logoBox"><img id="ll${i}" src="${g.logoLocal}"><div style="flex:1"><input id="local${i}" value="${g.local}"><label>Reemplazar escudo</label><input id="fl${i}" type="file" accept="image/*"></div></div></div>
+  <div><b>VISITANTE</b><div class="logoBox"><img id="lv${i}" src="${g.logoVisitante}"><div style="flex:1"><input id="visitante${i}" value="${g.visitante}"><label>Reemplazar escudo</label><input id="fv${i}" type="file" accept="image/*"></div></div></div>
+ </div>`;
+}
+root.innerHTML=C.partidos.map(gameRow).join('');
+function bindFile(id,imgId,obj,key){
+ document.getElementById(id).onchange=e=>{
+  const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=()=>{obj[key]=r.result;document.getElementById(imgId).src=r.result};r.readAsDataURL(f);
+ }
+}
+C.partidos.forEach((g,i)=>{bindFile('fl'+i,'ll'+i,g,'logoLocal');bindFile('fv'+i,'lv'+i,g,'logoVisitante')});
+document.getElementById('download').onclick=()=>{
+ C.jornada=document.getElementById('jornada').value.trim();C.liga=document.getElementById('liga').value.trim();C.fecha=document.getElementById('fecha').value.trim();C.cierre=document.getElementById('cierre').value.trim();C.precioBase=Number(document.getElementById('precio').value)||30;C.organizerWhatsApp=document.getElementById('whatsapp').value.trim();C.webAppUrl=document.getElementById('webapp').value.trim();
+ C.partidos.forEach((g,i)=>{g.local=document.getElementById('local'+i).value.trim();g.visitante=document.getElementById('visitante'+i).value.trim()});
+ const blob=new Blob(['window.CAPITAN_CONFIG = '+JSON.stringify(C,null,2)+';\n'],{type:'application/javascript'});
+ const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='jornada.js';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+};
+</script></body></html>
